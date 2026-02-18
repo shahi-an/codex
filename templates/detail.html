@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="h3 mb-4">Vulnerability Details</h1>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Record ID</dt>
+      <dd class="col-sm-9">{{ vulnerability.external_id or ('DB-' ~ vulnerability.id) }}</dd>
+
+      <dt class="col-sm-3">Server Name</dt>
+      <dd class="col-sm-9">{{ vulnerability.server_name or '-' }}</dd>
+
+      <dt class="col-sm-3">Vulnerability Type</dt>
+      <dd class="col-sm-9">{{ vulnerability.vulnerability_type or '-' }}</dd>
+
+      <dt class="col-sm-3">Severity</dt>
+      <dd class="col-sm-9">{{ vulnerability.severity or '-' }}</dd>
+
+      <dt class="col-sm-3">Description</dt>
+      <dd class="col-sm-9">{{ vulnerability.description or '-' }}</dd>
+
+      <dt class="col-sm-3">Current Status</dt>
+      <dd class="col-sm-9">{{ vulnerability.status }}</dd>
+
+      <dt class="col-sm-3">Assigned Individual</dt>
+      <dd class="col-sm-9">{{ vulnerability.assigned_individual or '-' }}</dd>
+
+      <dt class="col-sm-3">Assigned Team</dt>
+      <dd class="col-sm-9">{{ vulnerability.assigned_team or '-' }}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h2 class="h5">Update Assignment and Status</h2>
+    <form method="post" class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Status</label>
+        <select class="form-select" name="status">
+          {% for status in statuses %}
+          <option value="{{ status }}" {% if vulnerability.status == status %}selected{% endif %}>{{ status }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Assigned Individual</label>
+        <input class="form-control" name="assigned_individual" value="{{ vulnerability.assigned_individual or '' }}" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Assigned Team</label>
+        <input class="form-control" name="assigned_team" value="{{ vulnerability.assigned_team or '' }}" />
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary" type="submit">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
