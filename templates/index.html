@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="h3 mb-3">Imported Vulnerabilities</h1>
+
+<form method="get" class="row gy-2 gx-3 align-items-end mb-3">
+  <div class="col-md-3">
+    <label class="form-label">Status</label>
+    <select name="status" class="form-select">
+      <option value="">All</option>
+      {% for status in statuses %}
+      <option value="{{ status }}" {% if selected_status == status %}selected{% endif %}>{{ status }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Vulnerability Type</label>
+    <select name="type" class="form-select">
+      <option value="">All</option>
+      {% for type in vulnerability_types %}
+      <option value="{{ type }}" {% if selected_type == type %}selected{% endif %}>{{ type }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <button class="btn btn-primary w-100" type="submit">Filter</button>
+  </div>
+</form>
+
+<div class="table-responsive">
+  <table class="table table-striped table-hover align-middle">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Server</th>
+        <th>Type</th>
+        <th>Severity</th>
+        <th>Status</th>
+        <th>Assigned To</th>
+        <th>Team</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for vulnerability in vulnerabilities %}
+      <tr>
+        <td>
+          <a href="{{ url_for('vulnerability_detail', vulnerability_id=vulnerability.id) }}">
+            {{ vulnerability.external_id or ('DB-' ~ vulnerability.id) }}
+          </a>
+        </td>
+        <td>{{ vulnerability.server_name or '-' }}</td>
+        <td>{{ vulnerability.vulnerability_type or '-' }}</td>
+        <td>{{ vulnerability.severity or '-' }}</td>
+        <td><span class="badge text-bg-secondary">{{ vulnerability.status }}</span></td>
+        <td>{{ vulnerability.assigned_individual or '-' }}</td>
+        <td>{{ vulnerability.assigned_team or '-' }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="text-center text-muted">No vulnerabilities available. Import an Excel report to get started.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
