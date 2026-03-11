@@ -2,212 +2,167 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Any
 
-import pandas as pd
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, flash, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///vulnerabilities.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///maids.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-VALID_STATUSES = [
-    "Open",
-    "Work in Progress",
-    "Closed",
-    "Awaiting Further Information",
-]
 
-
-class Vulnerability(db.Model):
+class Maid(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    external_id = db.Column(db.String(120), nullable=True)
-    server_name = db.Column(db.String(255), nullable=True)
-    vulnerability_type = db.Column(db.String(255), nullable=True)
-    severity = db.Column(db.String(80), nullable=True)
-    description = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String(80), nullable=False, default="Open")
-    assigned_individual = db.Column(db.String(255), nullable=True)
-    assigned_team = db.Column(db.String(255), nullable=True)
-    imported_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    name = db.Column(db.String(120), nullable=False)
+    age = db.Column(db.Integer, nullable=False)
+    experience_years = db.Column(db.Integer, nullable=False)
+    current_address = db.Column(db.String(255), nullable=False)
+    phone_number = db.Column(db.String(20), nullable=False)
+    id_verified = db.Column(db.Boolean, nullable=False, default=False)
+    email = db.Column(db.String(120), nullable=False, unique=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    call_requests = db.relationship("CallRequest", backref="maid", lazy=True, cascade="all, delete-orphan")
 
 
-class AssignmentRule(db.Model):
+class CallRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    vulnerability_type = db.Column(db.String(255), unique=True, nullable=False)
-    assigned_individual = db.Column(db.String(255), nullable=True)
-    assigned_team = db.Column(db.String(255), nullable=True)
+    maid_id = db.Column(db.Integer, db.ForeignKey("maid.id"), nullable=False)
+    requester_name = db.Column(db.String(120), nullable=False)
+    requester_phone = db.Column(db.String(20), nullable=False)
+    requester_area = db.Column(db.String(120), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
-def normalize_headers(columns: list[str]) -> dict[str, str]:
-    return {c.strip().lower().replace(" ", "_"): c for c in columns}
-
-
-def value_for(row: pd.Series, headers: dict[str, str], *candidates: str) -> Any:
-    for candidate in candidates:
-        key = candidate.strip().lower().replace(" ", "_")
-        if key in headers:
-            value = row[headers[key]]
-            if pd.isna(value):
-                return None
-            return str(value).strip()
-    return None
-
-
-def apply_assignment(vulnerability: Vulnerability) -> None:
-    if not vulnerability.vulnerability_type:
-        return
-
-    rule = AssignmentRule.query.filter_by(
-        vulnerability_type=vulnerability.vulnerability_type
-    ).first()
-    if rule:
-        vulnerability.assigned_individual = rule.assigned_individual
-        vulnerability.assigned_team = rule.assigned_team
+def current_maid() -> Maid | None:
+    maid_id = session.get("maid_id")
+    if not maid_id:
+        return None
+    return Maid.query.get(maid_id)
 
 
 @app.get("/")
 def index():
-    status = request.args.get("status")
-    vuln_type = request.args.get("type")
+    area = request.args.get("area", "").strip()
+    query = Maid.query.order_by(Maid.created_at.desc())
 
-    query = Vulnerability.query.order_by(Vulnerability.imported_at.desc())
-    if status:
-        query = query.filter_by(status=status)
-    if vuln_type:
-        query = query.filter_by(vulnerability_type=vuln_type)
+    if area:
+        query = query.filter(Maid.current_address.ilike(f"%{area}%"))
 
-    vulnerabilities = query.all()
-    types = [
-        t[0]
-        for t in db.session.query(Vulnerability.vulnerability_type)
-        .distinct()
-        .order_by(Vulnerability.vulnerability_type.asc())
-        .all()
-        if t[0]
-    ]
-
-    return render_template(
-        "index.html",
-        vulnerabilities=vulnerabilities,
-        statuses=VALID_STATUSES,
-        selected_status=status,
-        selected_type=vuln_type,
-        vulnerability_types=types,
-    )
+    maids = query.all()
+    return render_template("index.html", maids=maids, area=area)
 
 
-@app.route("/import", methods=["GET", "POST"])
-def import_excel():
+@app.route("/register", methods=["GET", "POST"])
+def register():
     if request.method == "POST":
-        file = request.files.get("excel_file")
-        if not file or not file.filename:
-            flash("Please upload an Excel file.", "danger")
-            return redirect(url_for("import_excel"))
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        age = request.form.get("age", "").strip()
+        experience_years = request.form.get("experience_years", "").strip()
+        current_address = request.form.get("current_address", "").strip()
+        phone_number = request.form.get("phone_number", "").strip()
+        id_verified = request.form.get("id_verified") == "yes"
+        password = request.form.get("password", "")
 
-        try:
-            dataframe = pd.read_excel(file)
-        except Exception as exc:  # noqa: BLE001
-            flash(f"Could not read Excel file: {exc}", "danger")
-            return redirect(url_for("import_excel"))
+        if not all([name, email, age, experience_years, current_address, phone_number, password]):
+            flash("All fields are required.", "danger")
+            return redirect(url_for("register"))
 
-        if dataframe.empty:
-            flash("The uploaded report has no rows.", "warning")
-            return redirect(url_for("import_excel"))
+        if Maid.query.filter_by(email=email).first():
+            flash("An account with this email already exists.", "danger")
+            return redirect(url_for("register"))
 
-        headers = normalize_headers(list(dataframe.columns))
-        imported_count = 0
-
-        for _, row in dataframe.iterrows():
-            vulnerability = Vulnerability(
-                external_id=value_for(row, headers, "id", "vulnerability_id", "ticket"),
-                server_name=value_for(row, headers, "server", "server_name", "hostname"),
-                vulnerability_type=value_for(
-                    row, headers, "vulnerability_type", "type", "category"
-                ),
-                severity=value_for(row, headers, "severity", "risk"),
-                description=value_for(row, headers, "description", "details"),
-                status=value_for(row, headers, "status") or "Open",
-            )
-
-            if vulnerability.status not in VALID_STATUSES:
-                vulnerability.status = "Open"
-
-            apply_assignment(vulnerability)
-            db.session.add(vulnerability)
-            imported_count += 1
-
+        maid = Maid(
+            name=name,
+            email=email,
+            age=int(age),
+            experience_years=int(experience_years),
+            current_address=current_address,
+            phone_number=phone_number,
+            id_verified=id_verified,
+            password_hash=generate_password_hash(password),
+        )
+        db.session.add(maid)
         db.session.commit()
-        flash(f"Imported {imported_count} vulnerabilities.", "success")
+
+        flash("Registration successful. Please login.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        maid = Maid.query.filter_by(email=email).first()
+        if not maid or not check_password_hash(maid.password_hash, password):
+            flash("Invalid email or password.", "danger")
+            return redirect(url_for("login"))
+
+        session["maid_id"] = maid.id
+        flash("Logged in successfully.", "success")
+        return redirect(url_for("maid_dashboard"))
+
+    return render_template("login.html")
+
+
+@app.get("/logout")
+def logout():
+    session.pop("maid_id", None)
+    flash("You have been logged out.", "info")
+    return redirect(url_for("index"))
+
+
+@app.post("/maids/<int:maid_id>/request-call")
+def request_call(maid_id: int):
+    maid = Maid.query.get_or_404(maid_id)
+
+    requester_name = request.form.get("requester_name", "").strip()
+    requester_phone = request.form.get("requester_phone", "").strip()
+    requester_area = request.form.get("requester_area", "").strip()
+    notes = request.form.get("notes", "").strip() or None
+
+    if not requester_name or not requester_phone or not requester_area:
+        flash("Please enter your name, phone number, and area.", "danger")
         return redirect(url_for("index"))
 
-    return render_template("import.html")
-
-
-@app.route("/vulnerabilities/<int:vulnerability_id>", methods=["GET", "POST"])
-def vulnerability_detail(vulnerability_id: int):
-    vulnerability = Vulnerability.query.get_or_404(vulnerability_id)
-
-    if request.method == "POST":
-        new_status = request.form.get("status")
-        assigned_individual = request.form.get("assigned_individual")
-        assigned_team = request.form.get("assigned_team")
-
-        if new_status in VALID_STATUSES:
-            vulnerability.status = new_status
-
-        vulnerability.assigned_individual = assigned_individual
-        vulnerability.assigned_team = assigned_team
-
-        db.session.commit()
-        flash("Vulnerability updated.", "success")
-        return redirect(url_for("vulnerability_detail", vulnerability_id=vulnerability.id))
-
-    return render_template(
-        "detail.html",
-        vulnerability=vulnerability,
-        statuses=VALID_STATUSES,
+    call_request = CallRequest(
+        maid=maid,
+        requester_name=requester_name,
+        requester_phone=requester_phone,
+        requester_area=requester_area,
+        notes=notes,
     )
-
-
-@app.route("/assignment-rules", methods=["GET", "POST"])
-def assignment_rules():
-    if request.method == "POST":
-        vulnerability_type = request.form.get("vulnerability_type", "").strip()
-        assigned_individual = request.form.get("assigned_individual", "").strip() or None
-        assigned_team = request.form.get("assigned_team", "").strip() or None
-
-        if not vulnerability_type:
-            flash("Vulnerability type is required.", "danger")
-            return redirect(url_for("assignment_rules"))
-
-        rule = AssignmentRule.query.filter_by(vulnerability_type=vulnerability_type).first()
-        if not rule:
-            rule = AssignmentRule(vulnerability_type=vulnerability_type)
-
-        rule.assigned_individual = assigned_individual
-        rule.assigned_team = assigned_team
-        db.session.add(rule)
-        db.session.commit()
-
-        flash("Assignment rule saved.", "success")
-        return redirect(url_for("assignment_rules"))
-
-    rules = AssignmentRule.query.order_by(AssignmentRule.vulnerability_type.asc()).all()
-    return render_template("rules.html", rules=rules)
-
-
-@app.post("/assignment-rules/<int:rule_id>/delete")
-def delete_rule(rule_id: int):
-    rule = AssignmentRule.query.get_or_404(rule_id)
-    db.session.delete(rule)
+    db.session.add(call_request)
     db.session.commit()
-    flash("Rule deleted.", "success")
-    return redirect(url_for("assignment_rules"))
+
+    flash(f"Call request sent to {maid.name}.", "success")
+    return redirect(url_for("index"))
+
+
+@app.get("/maid/dashboard")
+def maid_dashboard():
+    maid = current_maid()
+    if not maid:
+        flash("Please login to view your dashboard.", "warning")
+        return redirect(url_for("login"))
+
+    requests = (
+        CallRequest.query.filter_by(maid_id=maid.id)
+        .order_by(CallRequest.created_at.desc())
+        .all()
+    )
+    return render_template("dashboard.html", maid=maid, requests=requests)
 
 
 if __name__ == "__main__":
