@@ -9,12 +9,6 @@ pipeline {
 
  stages {
 
-  stage('checkout') {
-   steps {
-    git 'https://github.com/shahi-an/codex.git'
-   }
-  }
-
   stage('Build Docker Image') {
    steps {
     sh 'docker build -t $IMAGE .'
