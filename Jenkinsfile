@@ -24,7 +24,7 @@ pipeline {
   stage('Docker Login') {
    steps {
     withCredentials([usernamePassword(
-        credentialsID: 'Nexus-docker',
+        credentialsId: 'Nexus-docker',
         usernameVariable: 'USER',
         passwordVariable: 'PASS'
     )]) {
