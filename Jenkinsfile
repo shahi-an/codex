@@ -4,7 +4,7 @@ pipeline {
 
  environment {
   REGISTRY = "34.30.178.105:9082"
-  IMAGE = "maid-app:v1"
+  IMAGE = "maid-app"
  }
 
  stages {
