@@ -3,7 +3,7 @@ pipeline {
  agent any
 
  environment {
-  REGISTRY = "34.30.178.105:9082"
+  REGISTRY = "34.30.178.105:8082"
   IMAGE = "maid-app"
  }
 
