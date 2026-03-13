@@ -1,12 +1,29 @@
-# Vulnerability Tracker MVP
+# MaidConnect (Maid / Househelp Listing App)
 
-This project is a lightweight web app to:
+MaidConnect is a simple Flask web application where:
 
-- Import vulnerability reports from Excel (`.xlsx`)
-- Store all imported rows in a database (SQLite by default)
-- Auto-assign vulnerabilities to individuals/teams using vulnerability-type rules
-- Update status (`Open`, `Work in Progress`, `Closed`, `Awaiting Further Information`)
-- Click a vulnerability record to view all stored details
+- Users can browse available maids/househelp in their area.
+- Users can view each maid's details:
+  - Name
+  - Age
+  - Experience
+  - Current address
+  - Phone number
+  - ID verification status
+- Users can send a **call request** to a maid.
+- Maids can register themselves on the platform.
+- Maids can log in and view how many call requests they have received.
+
+## Prerequisites
+
+- Python 3.10+
+- Pip
+- (Optional) A database URL if you don't want SQLite
+
+By default, the app uses **SQLite** (`maids.db`) and creates tables automatically.
+So **no separate DB setup is required** for local usage.
+
+If you want PostgreSQL/MySQL, set `DATABASE_URL` before running the app.
 
 ## Run locally
 
@@ -17,17 +34,9 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Then open `http://localhost:5000`.
+Then open: `http://localhost:5000`
 
-## Suggested Excel columns
+## Environment variables
 
-The importer attempts to map common header names. These are recommended:
-
-- `id`
-- `server_name`
-- `vulnerability_type`
-- `severity`
-- `description`
-- `status` (optional)
-
-Alternative names like `server`, `hostname`, `type`, `category`, `risk`, and `details` are also recognized.
+- `SECRET_KEY` (optional): Flask session secret
+- `DATABASE_URL` (optional): SQLAlchemy DB URL (default: `sqlite:///maids.db`)

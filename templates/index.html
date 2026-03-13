@@ -1,65 +1,54 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1 class="h3 mb-3">Imported Vulnerabilities</h1>
+<h1 class="h3 mb-3">Available Maids / Househelp Near You</h1>
 
-<form method="get" class="row gy-2 gx-3 align-items-end mb-3">
-  <div class="col-md-3">
-    <label class="form-label">Status</label>
-    <select name="status" class="form-select">
-      <option value="">All</option>
-      {% for status in statuses %}
-      <option value="{{ status }}" {% if selected_status == status %}selected{% endif %}>{{ status }}</option>
-      {% endfor %}
-    </select>
+<form method="get" class="row g-2 mb-4">
+  <div class="col-md-5">
+    <label class="form-label">Search by area</label>
+    <input class="form-control" name="area" value="{{ area }}" placeholder="e.g. Indiranagar, Bengaluru" />
   </div>
-  <div class="col-md-3">
-    <label class="form-label">Vulnerability Type</label>
-    <select name="type" class="form-select">
-      <option value="">All</option>
-      {% for type in vulnerability_types %}
-      <option value="{{ type }}" {% if selected_type == type %}selected{% endif %}>{{ type }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-md-2">
-    <button class="btn btn-primary w-100" type="submit">Filter</button>
+  <div class="col-md-2 align-self-end">
+    <button class="btn btn-primary w-100" type="submit">Search</button>
   </div>
 </form>
 
-<div class="table-responsive">
-  <table class="table table-striped table-hover align-middle">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Server</th>
-        <th>Type</th>
-        <th>Severity</th>
-        <th>Status</th>
-        <th>Assigned To</th>
-        <th>Team</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for vulnerability in vulnerabilities %}
-      <tr>
-        <td>
-          <a href="{{ url_for('vulnerability_detail', vulnerability_id=vulnerability.id) }}">
-            {{ vulnerability.external_id or ('DB-' ~ vulnerability.id) }}
-          </a>
-        </td>
-        <td>{{ vulnerability.server_name or '-' }}</td>
-        <td>{{ vulnerability.vulnerability_type or '-' }}</td>
-        <td>{{ vulnerability.severity or '-' }}</td>
-        <td><span class="badge text-bg-secondary">{{ vulnerability.status }}</span></td>
-        <td>{{ vulnerability.assigned_individual or '-' }}</td>
-        <td>{{ vulnerability.assigned_team or '-' }}</td>
-      </tr>
-      {% else %}
-      <tr>
-        <td colspan="7" class="text-center text-muted">No vulnerabilities available. Import an Excel report to get started.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="row g-4">
+  {% for maid in maids %}
+  <div class="col-lg-6">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h2 class="h5">{{ maid.name }}</h2>
+        <p class="mb-1"><strong>Age:</strong> {{ maid.age }}</p>
+        <p class="mb-1"><strong>Experience:</strong> {{ maid.experience_years }} years</p>
+        <p class="mb-1"><strong>Current Address:</strong> {{ maid.current_address }}</p>
+        <p class="mb-1"><strong>Phone:</strong> {{ maid.phone_number }}</p>
+        <p class="mb-3"><strong>ID Verified:</strong> {{ 'Yes' if maid.id_verified else 'No' }}</p>
+
+        <h3 class="h6">Request a call</h3>
+        <form method="post" action="{{ url_for('request_call', maid_id=maid.id) }}" class="row g-2">
+          <div class="col-md-6">
+            <input class="form-control" name="requester_name" placeholder="Your name" required />
+          </div>
+          <div class="col-md-6">
+            <input class="form-control" name="requester_phone" placeholder="Your phone" required />
+          </div>
+          <div class="col-12">
+            <input class="form-control" name="requester_area" placeholder="Your area" required />
+          </div>
+          <div class="col-12">
+            <textarea class="form-control" name="notes" rows="2" placeholder="Optional message"></textarea>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-success" type="submit">Send Call Request</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12">
+    <div class="alert alert-info">No maids found for this area yet. Please try another location.</div>
+  </div>
+  {% endfor %}
 </div>
 {% endblock %}
