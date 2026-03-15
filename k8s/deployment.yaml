@@ -23,4 +23,6 @@ spec:
         image: 34.30.178.105:8082/maid-app:latest
         ports: 
         - containerPort: 5000
+      imagePullSecrets:
+      - name: nexus-secret
 
