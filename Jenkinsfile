@@ -39,6 +39,16 @@ pipeline {
     sh 'docker push $REGISTRY/$IMAGE:${BUILD_NUMBER}'
    }
   }
+  
+  stage('Deploy to kubernetes') {
+   steps {
+    sh '''
+    sed -i "s|maid-app:latest|maid-app:${BUILD_NUMBER}|g" k8s/deployment.yaml
+    kubectl apply -f k8s/deployment.yaml
+    kubectl apply -f k8s/service.yaml
+    '''
+   }
+  }
 
  }
 
