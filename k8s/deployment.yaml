@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maid-app
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels: 
+      app: maid-app
+
+
+  template:
+    metadata:
+      labels:
+        app: maid-app
+
+         n
+
+    spec:
+      containers:
+      - name: maid-app
+        image: 34.30.178.105:8082/maid-app:latest
+        ports: 
+        - containerPort: 5000
+
