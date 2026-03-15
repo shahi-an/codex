@@ -16,7 +16,6 @@ spec:
       labels:
         app: maid-app
 
-         n
 
     spec:
       containers:
